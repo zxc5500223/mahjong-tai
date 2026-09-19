@@ -159,6 +159,21 @@
 
   .dice-total-line { text-align: center; font-size: 14px; color: var(--text-on-panel); margin-bottom: 4px; }
   .dice-total-line span { font-weight: 900; color: var(--lacquer); font-family: "Noto Serif TC", serif; font-size: 18px; }
+  .roll-btn {
+    display: block; margin: 0 auto 14px; padding: 9px 20px; border-radius: 10px;
+    border: 1px solid var(--divider); background: var(--felt); color: var(--ivory);
+    font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: background 0.15s ease, transform 0.05s ease;
+  }
+  .roll-btn:hover { background: var(--felt-light); }
+  .roll-btn:active { transform: scale(0.97); }
+  .roll-btn.rolling .die-box { animation: none; }
+  @keyframes diceShake {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-8deg); }
+    75% { transform: rotate(8deg); }
+  }
+  .die-box.shaking .pips-grid { animation: diceShake 0.1s linear infinite; }
 
   .seat-result { margin-top: 22px; }
 
@@ -207,12 +222,11 @@
 
   /* ---- Mahjong tile chips (rendered as text, not emoji, for reliable display) ---- */
   .mj-tile {
-    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
-    background: #FBF7EE; border: 1px solid var(--divider); border-radius: 6px;
-    box-shadow: 0 1px 0 rgba(0,0,0,0.06), inset 0 0 0 1px rgba(255,255,255,0.5);
-    font-family: "Noto Serif TC", serif; line-height: 1.05; user-select: none; flex-shrink: 0;
-
+    display: inline-flex; align-items: center; justify-content: center;
+    line-height: 1; user-select: none; flex-shrink: 0; overflow: hidden;
+    border-radius: 7px;
   }
+  .mj-tile svg { display: block; width: 100%; height: 100%; }
   .mj-tile.size-sm { width: 30px; height: 40px; }
   .mj-tile.size-md { width: 40px; height: 52px; }
   .mj-tile.size-lg { width: 50px; height: 64px; }
@@ -477,6 +491,7 @@
     </div>
 
     <div class="dice-picker" id="dicePicker"></div>
+    <button class="roll-btn" id="rollDiceBtn" type="button">🎲 擲骰子</button>
     <div class="dice-total-line">總點數：<span id="diceTotal">3</span> 點</div>
     <button class="go-btn" id="calcSeatBtn" type="button">計算抓牌位置</button>
 
@@ -571,6 +586,30 @@
   }
   buildDicePicker();
 
+  document.getElementById('rollDiceBtn').addEventListener('click', () => {
+    const boxes = document.querySelectorAll('#dicePicker .die-box');
+    boxes.forEach(b => b.classList.add('shaking'));
+    let ticks = 0;
+    const timer = setInterval(() => {
+      for (let i = 0; i < 3; i++) {
+        const randVal = 1 + Math.floor(Math.random() * 6);
+        renderPips(document.getElementById('pips' + i), randVal);
+      }
+      ticks++;
+      if (ticks >= 8) {
+        clearInterval(timer);
+        boxes.forEach(b => b.classList.remove('shaking'));
+        for (let i = 0; i < 3; i++) {
+          const finalVal = 1 + Math.floor(Math.random() * 6);
+          diceValues[i] = finalVal;
+          document.getElementById('dieSel' + i).value = String(finalVal);
+          renderPips(document.getElementById('pips' + i), finalVal);
+        }
+        updateDiceTotal();
+      }
+    }, 70);
+  });
+
   const CYCLE = ['east', 'north', 'west', 'south']; // physical direction stacks continue counting/dealing in
 
   function posFromOwner(ownerKey, count, wallLen) {
@@ -663,7 +702,7 @@
     }
   }
 
-  // ---------- Tile metadata & rendering (text-based tiles, not emoji, for reliable display) ----------
+  // ---------- Tile metadata & rendering (drawn SVG tile faces, no external images, works anywhere) ----------
   const WIND_NAME = { E: '東', S: '南', W: '西', N: '北' };
   const FLOWER_NAME = { chun: '春', xia: '夏', qiu: '秋', dong: '冬', mei: '梅', lan: '蘭', zhu: '竹', ju: '菊' };
   const SUIT_SUB = { m: '萬', s: '條', p: '筒' };
@@ -680,16 +719,168 @@
   }
   function isValidTile(code) { return !!tileMeta(code); }
 
+  const WAN_NUM = { 1: '一', 2: '二', 3: '三', 4: '四', 5: '五', 6: '六', 7: '七', 8: '八', 9: '九' };
+  const COLOR_HEX = { r: '#C0342A', b: '#2456A8', g: '#2E8B4F', p: '#5B3A96' };
+  const TILE_FACE = '<rect x="1.5" y="1.5" width="57" height="77" rx="7" fill="#FBF7EE" stroke="#D9CBAA" stroke-width="1.5"/>';
+
+  function svgWrap(inner) {
+    return '<svg viewBox="0 0 60 80" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">' + TILE_FACE + inner + '</svg>';
+  }
+  function svgWan(n) {
+    return svgWrap(
+      '<text x="30" y="33" text-anchor="middle" font-family="\'Noto Serif TC\',serif" font-weight="900" font-size="27" fill="#B23A2E">' + WAN_NUM[n] + '</text>' +
+      '<text x="30" y="63" text-anchor="middle" font-family="\'Noto Serif TC\',serif" font-weight="900" font-size="23" fill="#221D16">萬</text>'
+    );
+  }
+
+  // 一筒: ornate wheel/medallion (sunburst ring + red coin centre) instead of a plain pip
+  function svgWheelOne() {
+    const cx = 30, cy = 40, rOut = 17, rIn = 12, teeth = 16;
+    let star = '';
+    const pts = [];
+    for (let i = 0; i < teeth * 2; i++) {
+      const r = i % 2 === 0 ? rOut : rIn;
+      const a = (Math.PI * 2 * i) / (teeth * 2) - Math.PI / 2;
+      pts.push((cx + r * Math.cos(a)).toFixed(1) + ',' + (cy + r * Math.sin(a)).toFixed(1));
+    }
+    star = '<polygon points="' + pts.join(' ') + '" fill="#F4F1E8" stroke="#221D16" stroke-width="1"/>';
+    return svgWrap(
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + (rOut + 1.5) + '" fill="none" stroke="#221D16" stroke-width="1.6"/>' +
+      star +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="8.5" fill="#C0342A" stroke="#221D16" stroke-width="1"/>' +
+      '<rect x="' + (cx - 1.3) + '" y="' + (cy - 6.2) + '" width="2.6" height="12.4" rx="1" fill="#FBF7EE"/>' +
+      '<rect x="' + (cx - 6.2) + '" y="' + (cy - 1.3) + '" width="12.4" height="2.6" rx="1" fill="#FBF7EE"/>'
+    );
+  }
+  // Coin-style pip (circle with a cross cut through it) - the traditional 筒/饼 "copper coin" motif
+  function pipCoin(x, y, colorKey) {
+    const color = COLOR_HEX[colorKey];
+    return '<circle cx="' + x + '" cy="' + y + '" r="6.8" fill="' + color + '" stroke="#1c1c1c" stroke-width="0.7"/>' +
+      '<rect x="' + (x - 1.1) + '" y="' + (y - 5.3) + '" width="2.2" height="10.6" rx="1" fill="#FBF7EE"/>' +
+      '<rect x="' + (x - 5.3) + '" y="' + (y - 1.1) + '" width="10.6" height="2.2" rx="1" fill="#FBF7EE"/>';
+  }
+  // Exact pip layouts copied from the reference chart: [x, y, colorKey]
+  const DOT_LAYOUT = {
+    2: [[30, 24, 'g'], [30, 56, 'b']],
+    3: [[20, 24, 'g'], [30, 40, 'r'], [40, 56, 'b']],
+    4: [[20, 24, 'b'], [40, 24, 'g'], [20, 56, 'g'], [40, 56, 'b']],
+    5: [[19, 24, 'g'], [41, 24, 'b'], [30, 40, 'r'], [19, 56, 'b'], [41, 56, 'g']],
+    6: [[20, 22, 'g'], [40, 22, 'g'], [20, 40, 'r'], [40, 40, 'r'], [20, 58, 'r'], [40, 58, 'r']],
+    7: [[16, 20, 'g'], [27, 28, 'g'], [38, 36, 'g'], [22, 50, 'r'], [38, 50, 'r'], [22, 64, 'r'], [38, 64, 'r']],
+    8: [[20, 20, 'b'], [40, 20, 'b'], [20, 34, 'b'], [40, 34, 'b'], [20, 48, 'b'], [40, 48, 'b'], [20, 62, 'b'], [40, 62, 'b']],
+    9: [[15, 20, 'g'], [30, 20, 'g'], [45, 20, 'g'], [15, 40, 'r'], [30, 40, 'r'], [45, 40, 'r'], [15, 60, 'b'], [30, 60, 'b'], [45, 60, 'b']]
+  };
+  function svgDots(n) {
+    if (n === 1) return svgWheelOne();
+    let shapes = '';
+    (DOT_LAYOUT[n] || []).forEach(([x, y, c]) => { shapes += pipCoin(x, y, c); });
+    return svgWrap(shapes);
+  }
+
+  // 一條: stylised calligraphic bird (green line-art, red eye) per the reference
+  function svgBirdOne() {
+    const c = '#2E8B4F';
+    const lw = '1.7';
+    return svgWrap(
+      // top-left curl
+      '<path d="M27 17 Q21 13 22 17 Q23 21 28 20 Q25 19 23 22" fill="none" stroke="' + c + '" stroke-width="' + lw + '" stroke-linecap="round"/>' +
+      // top-right sweeping horn
+      '<path d="M32 17 Q38 8 46 12 Q40 13 37 20" fill="none" stroke="' + c + '" stroke-width="' + lw + '" stroke-linecap="round"/>' +
+      // small flick left of eye
+      '<path d="M19 24 L15 21" fill="none" stroke="' + c + '" stroke-width="' + lw + '" stroke-linecap="round"/>' +
+      // eye
+      '<circle cx="30" cy="26" r="4" fill="#FBF7EE" stroke="' + c + '" stroke-width="1.5"/>' +
+      '<circle cx="30.8" cy="26.6" r="1.9" fill="#C0342A"/>' +
+      '<circle cx="30" cy="25.6" r="0.6" fill="#FBF7EE"/>' +
+      // big hook on the right (cheek/wing)
+      '<path d="M33 22 Q44 24 42 33 Q40 40 33 38" fill="none" stroke="' + c + '" stroke-width="' + lw + '" stroke-linecap="round"/>' +
+      // body outline (left/right) with rib lines
+      '<path d="M24 27 Q21 34 25 41" fill="none" stroke="' + c + '" stroke-width="' + lw + '" stroke-linecap="round"/>' +
+      '<path d="M25 30 L26 38 M29 31 L29.5 40 M33 30 L33 38" fill="none" stroke="' + c + '" stroke-width="1.1" stroke-linecap="round"/>' +
+      // side curls (hands)
+      '<path d="M24 40 Q15 41 12 38" fill="none" stroke="' + c + '" stroke-width="' + lw + '" stroke-linecap="round"/>' +
+      '<circle cx="10.5" cy="39.5" r="2" fill="none" stroke="' + c + '" stroke-width="1.3"/>' +
+      '<path d="M35 39 Q45 41 49 37" fill="none" stroke="' + c + '" stroke-width="' + lw + '" stroke-linecap="round"/>' +
+      '<circle cx="50.5" cy="38" r="2" fill="none" stroke="' + c + '" stroke-width="1.3"/>' +
+      // tail feathers
+      '<path d="M25 42 Q19 56 16 71" fill="none" stroke="' + c + '" stroke-width="' + lw + '" stroke-linecap="round"/>' +
+      '<path d="M31 43 Q30 58 29 73" fill="none" stroke="' + c + '" stroke-width="' + lw + '" stroke-linecap="round"/>' +
+      '<path d="M36 41 Q40 54 41 68" fill="none" stroke="' + c + '" stroke-width="' + lw + '" stroke-linecap="round"/>' +
+      '<path d="M20 50 L26 54 M19 57 L25 61 M18 64 L24 68" fill="none" stroke="' + c + '" stroke-width="0.9" stroke-linecap="round"/>'
+    );
+  }
+  // Three-lobed capsule "stick", the traditional 索/條 motif used on this tile set
+  function bambooCapsule(x, y, colorKey, h) {
+    h = h || 26;
+    const color = COLOR_HEX[colorKey];
+    const r = h / 5.2;
+    const spacing = r * 1.15;
+    const span = spacing * 2;
+    let s = '';
+    for (let i = 0; i < 3; i++) {
+      const cy = y - span / 2 + i * spacing;
+      s += '<circle cx="' + x + '" cy="' + cy.toFixed(1) + '" r="' + r.toFixed(1) + '" fill="' + color + '" stroke="#111" stroke-width="1"/>';
+    }
+    const stripeH = span + r * 1.7, stripeW = r * 0.6;
+    s += '<rect x="' + (x - stripeW / 2).toFixed(1) + '" y="' + (y - stripeH / 2).toFixed(1) + '" width="' + stripeW.toFixed(1) + '" height="' + stripeH.toFixed(1) + '" rx="' + (stripeW / 2).toFixed(1) + '" fill="#FBF7EE" stroke="#111" stroke-width="0.6"/>';
+    return s;
+  }
+  // Exact bamboo layouts copied from the reference chart: [x, y, colorKey] - all green except a red accent stick
+  const BAMBOO_LAYOUT = {
+    2: [[30, 24, 'g'], [30, 56, 'g']],
+    3: [[30, 20, 'g'], [18, 54, 'g'], [42, 54, 'g']],
+    4: [[19, 22, 'g'], [41, 22, 'g'], [19, 58, 'g'], [41, 58, 'g']],
+    5: [[19, 20, 'g'], [41, 20, 'g'], [30, 40, 'r'], [19, 60, 'g'], [41, 60, 'g']],
+    6: [[15, 22, 'g'], [30, 22, 'g'], [45, 22, 'g'], [15, 58, 'g'], [30, 58, 'g'], [45, 58, 'g']],
+    7: [[30, 16, 'r'], [15, 40, 'g'], [30, 40, 'g'], [45, 40, 'g'], [15, 64, 'g'], [30, 64, 'g'], [45, 64, 'g']],
+    9: [[15, 20, 'g'], [30, 20, 'r'], [45, 20, 'g'], [15, 40, 'g'], [30, 40, 'r'], [45, 40, 'g'], [15, 60, 'g'], [30, 60, 'r'], [45, 60, 'g']]
+  };
+  function svgBamboo(n) {
+    if (n === 1) return svgBirdOne();
+    if (n === 8) {
+      // A single bent tube forming a "W" then an "M", not separate beads - matches the reference exactly
+      const wPts = [[11, 20], [21, 37], [30, 26], [39, 37], [49, 20]];
+      const mPts = [[11, 65], [21, 48], [30, 58], [39, 48], [49, 65]];
+      const toPath = pts => 'M' + pts.map(p => p.join(',')).join(' L');
+      const tube = d =>
+        '<path d="' + d + '" fill="none" stroke="#111" stroke-width="10.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<path d="' + d + '" fill="none" stroke="' + COLOR_HEX.g + '" stroke-width="8.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<path d="' + d + '" fill="none" stroke="#FBF7EE" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>';
+      return svgWrap(tube(toPath(wPts)) + tube(toPath(mPts)));
+    }
+    let shapes = '';
+    const h = n >= 6 ? 17 : (n >= 4 ? 20 : 26);
+    (BAMBOO_LAYOUT[n] || []).forEach(([x, y, c]) => { shapes += bambooCapsule(x, y, c, h); });
+    return svgWrap(shapes);
+  }
+  function svgChar(text, color, fontSize) {
+    return svgWrap('<text x="30" y="47" text-anchor="middle" dominant-baseline="middle" font-family="\'Noto Serif TC\',serif" font-weight="900" font-size="' + (fontSize || 32) + '" fill="' + color + '">' + text + '</text>');
+  }
+  function svgBlank() {
+    return svgWrap('<rect x="15" y="21" width="30" height="38" rx="3" fill="none" stroke="#2456A8" stroke-width="3.5"/>');
+  }
+
+  function tileFaceSVG(code) {
+    const numMatch = /^([1-9])([msp])$/.exec(code);
+    if (numMatch) {
+      const n = parseInt(numMatch[1], 10), suit = numMatch[2];
+      if (suit === 'm') return svgWan(n);
+      if (suit === 'p') return svgDots(n);
+      return svgBamboo(n);
+    }
+    if (WIND_NAME[code]) return svgChar(WIND_NAME[code], '#221D16');
+    if (code === 'Z') return svgChar('中', '#B23A2E');
+    if (code === 'F') return svgChar('發', '#2E7D4F');
+    if (code === 'B') return svgBlank();
+    if (FLOWER_NAME[code]) return svgChar(FLOWER_NAME[code], '#A6631B', 30);
+    return svgWrap('<text x="30" y="47" text-anchor="middle" dominant-baseline="middle" font-size="28" fill="#999">?</text>');
+  }
+
   function makeTile(code, size, extraClass) {
     const div = document.createElement('div');
-    const meta = tileMeta(code);
-    if (!meta) { div.className = 'mj-tile size-' + size; div.textContent = '?'; return div; }
-    div.className = 'mj-tile size-' + size + ' ' + meta.cls + (extraClass ? ' ' + extraClass : '');
-    if (meta.sub) {
-      div.innerHTML = '<span class="num">' + meta.main + '</span><span class="sub">' + meta.sub + '</span>';
-    } else {
-      div.innerHTML = '<span class="honor">' + meta.main + '</span>';
-    }
+    const valid = isValidTile(code);
+    div.className = 'mj-tile size-' + size + (extraClass ? ' ' + extraClass : '');
+    div.innerHTML = valid ? tileFaceSVG(code) : svgWrap('<text x="30" y="47" text-anchor="middle" dominant-baseline="middle" font-size="28" fill="#999">?</text>');
     return div;
   }
 
@@ -764,8 +955,8 @@
 
   const PALETTE_ROWS = [
     ['1m','2m','3m','4m','5m','6m','7m','8m','9m'],
-    ['1s','2s','3s','4s','5s','6s','7s','8s','9s'],
     ['1p','2p','3p','4p','5p','6p','7p','8p','9p'],
+    ['1s','2s','3s','4s','5s','6s','7s','8s','9s'],
     ['E','S','W','N','Z','F','B'],
     ['chun','xia','qiu','dong','mei','lan','zhu','ju']
   ];
