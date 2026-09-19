@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>麻將台數計算</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --felt-deep: #16332B;
+    --felt: #204F3E;
+    --felt-light: #2C6650;
+    --ivory: #F2EADA;
+    --ivory-dim: #E4D7BC;
+    --ink: #221D16;
+    --ink-soft: #55503F;
+    --lacquer: #B23A2E;
+    --lacquer-dark: #8E2B21;
+    --gold: #C9A24A;
+    --bamboo: #2E7D4F;
+    --circle: #2456A8;
+    --shadow: rgba(10, 20, 15, 0.35);
+  }
+
+  :root:not([data-theme="light"]) {
+    --bg: var(--felt-deep);
+    --panel: var(--ivory);
+    --panel-sub: #FBF7EE;
+    --text-on-panel: var(--ink);
+    --text-on-bg: var(--ivory);
+    --muted-on-panel: var(--ink-soft);
+    --muted-on-bg: #BFD3C7;
+    --divider: #D9CBAA;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E211B;
+      --panel: #EDE3CD;
+      --panel-sub: #F7F1E2;
+      --text-on-panel: var(--ink);
+      --text-on-bg: #E7EFE9;
+      --muted-on-panel: var(--ink-soft);
+      --muted-on-bg: #9FBBAC;
+      --divider: #D2C29E;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0E211B;
+    --panel: #EDE3CD;
+    --panel-sub: #F7F1E2;
+    --text-on-panel: var(--ink);
+    --text-on-bg: #E7EFE9;
+    --muted-on-panel: var(--ink-soft);
+    --muted-on-bg: #9FBBAC;
+    --divider: #D2C29E;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% -10%, var(--felt-light) 0%, var(--bg) 62%);
+    color: var(--text-on-bg);
+    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px 64px;
+  }
+
+  .page { width: 100%; max-width: 540px; }
+
+  header.hero { text-align: center; margin-bottom: 22px; }
+
+  .seal {
+    width: 52px; height: 52px; margin: 0 auto 14px; border-radius: 50%;
+    background: var(--lacquer); border: 2px solid var(--gold); color: var(--ivory);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Noto Serif TC", serif; font-weight: 900; font-size: 26px;
+    box-shadow: 0 6px 16px var(--shadow);
+  }
+
+  h1 {
+    font-family: "Noto Serif TC", serif; font-weight: 900; font-size: 30px;
+    letter-spacing: 0.02em; margin: 0 0 8px; color: var(--text-on-bg);
+  }
+
+  .sub {
+    color: var(--muted-on-bg); font-size: 14.5px; line-height: 1.7;
+    margin: 0 auto; max-width: 360px;
+  }
+
+  .card {
+    background: var(--panel); color: var(--text-on-panel); border-radius: 18px;
+    padding: 22px; margin-top: 18px; box-shadow: 0 14px 34px var(--shadow);
+  }
+
+  details.settings {
+    border: 1px solid var(--divider); border-radius: 12px; padding: 2px 14px;
+    background: var(--panel-sub); margin-bottom: 14px;
+  }
+  details.settings summary {
+    cursor: pointer; list-style: none; padding: 12px 0; font-weight: 700; font-size: 14.5px;
+    display: flex; align-items: center; justify-content: space-between; color: var(--text-on-panel);
+  }
+  details.settings summary::-webkit-details-marker { display: none; }
+  details.settings summary .chev { transition: transform 0.2s ease; color: var(--muted-on-panel); font-size: 13px; }
+  details.settings[open] summary .chev { transform: rotate(180deg); }
+
+  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: 14px; }
+
+  .field label { display: block; font-size: 12.5px; color: var(--muted-on-panel); margin-bottom: 6px; }
+  .field select, .field input[type=number] {
+    width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--divider);
+    background: #fff; color: var(--ink); font-size: 14px; font-family: inherit;
+  }
+
+  .toggle-row { grid-column: 1 / -1; display: flex; gap: 18px; padding-top: 2px; flex-wrap: wrap; }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-on-panel); cursor: pointer; user-select: none; }
+  .toggle input { accent-color: var(--lacquer); width: 17px; height: 17px; }
+
+  .special-grid { display: flex; flex-direction: column; gap: 12px; padding-bottom: 14px; }
+  .special-intro { font-size: 12px; line-height: 1.6; color: var(--muted-on-panel); margin: -4px 0 12px; }
+  .special-item { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; font-size: 13px; color: var(--text-on-panel); cursor: pointer; }
+  .special-item .si-row { display: flex; align-items: center; gap: 6px; }
+  .special-item input { accent-color: var(--lacquer); flex-shrink: 0; }
+  .special-item .hint { color: var(--muted-on-panel); font-size: 11px; }
+  .special-item .si-desc { font-size: 11.5px; line-height: 1.5; color: var(--muted-on-panel); padding-left: 22px; }
+
+  .mode-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab-btn {
+    flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--divider);
+    background: var(--panel-sub); color: var(--muted-on-panel); font-family: inherit;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .tab-btn.active { background: var(--felt-deep); color: var(--ivory); border-color: var(--felt-deep); }
+  .tab-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .tab-note { font-size: 12px; color: var(--muted-on-panel); text-align: center; margin: -8px 0 14px; }
+  .mode-tabs.main-tabs { margin-bottom: 0; }
+
+  .seat-intro { font-size: 13.5px; line-height: 1.7; color: var(--muted-on-panel); margin: 0 0 18px; }
+
+  .dice-picker { display: flex; justify-content: center; gap: 16px; margin-bottom: 16px; }
+  .die-box { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .pips-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    width: 52px; height: 52px; padding: 6px; background: #fff; border: 1px solid var(--divider);
+    border-radius: 9px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .pip { display: flex; align-items: center; justify-content: center; }
+  .pip.on::after { content: ''; width: 62%; height: 62%; border-radius: 50%; background: var(--lacquer); }
+  .die-box select {
+    padding: 5px 6px; border-radius: 7px; border: 1px solid var(--divider); font-family: inherit; font-size: 13px;
+  }
+
+  .dice-total-line { text-align: center; font-size: 14px; color: var(--text-on-panel); margin-bottom: 4px; }
+  .dice-total-line span { font-weight: 900; color: var(--lacquer); font-family: "Noto Serif TC", serif; font-size: 18px; }
+
+  .seat-result { margin-top: 22px; }
+
+  .wall-table {
+    position: relative; width: 100%; max-width: 320px; aspect-ratio: 1 / 1; margin: 10px auto 20px;
+    background: var(--felt-deep); border-radius: 18px; box-shadow: inset 0 0 0 2px rgba(201,162,74,0.55);
+  }
+  .wall-row { position: absolute; display: flex; gap: 1px; }
+  .wall-row.top, .wall-row.bottom { left: 22px; right: 22px; height: 20px; }
+  .wall-row.top { top: 7px; }
+  .wall-row.bottom { bottom: 7px; }
+  .wall-row.left, .wall-row.right { flex-direction: column; top: 22px; bottom: 22px; width: 20px; }
+  .wall-row.left { left: 7px; }
+  .wall-row.right { right: 7px; }
+
+  .stack { flex: 1; min-width: 0; min-height: 0; background: var(--bamboo); border: 1px solid #1c4a30; border-radius: 2px; position: relative; }
+  .stack.hl-gold { outline: 2px solid var(--gold); box-shadow: 0 0 6px rgba(201,162,74,0.9); z-index: 3; }
+  .stack.hl-red { outline: 2px solid #D14B3E; box-shadow: 0 0 6px rgba(209,75,62,0.9); z-index: 3; }
+  .stack.hl-blue { outline: 2px solid #3E7DD1; box-shadow: 0 0 6px rgba(62,125,209,0.9); z-index: 3; }
+  .stack .pnum { position: absolute; font-size: 6.5px; line-height: 1; color: var(--ivory-dim); white-space: nowrap; }
+  .wall-row.top .stack .pnum { bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 2px; }
+  .wall-row.bottom .stack .pnum { top: 100%; left: 50%; transform: translateX(-50%); margin-top: 2px; }
+  .wall-row.left .stack .pnum { right: 100%; top: 50%; transform: translateY(-50%); margin-right: 2px; }
+  .wall-row.right .stack .pnum { left: 100%; top: 50%; transform: translateY(-50%); margin-left: 2px; }
+
+  .seat-tag { position: absolute; text-align: center; font-family: "Noto Serif TC", serif; font-weight: 900; color: var(--ivory-dim); font-size: 15px; transition: color 0.2s ease; }
+  .seat-tag span.sub { display: block; font-family: "Noto Sans TC", sans-serif; font-weight: 400; font-size: 9px; color: var(--muted-on-bg); margin-top: 1px; }
+  .seat-tag.win { color: var(--gold); }
+  .seat-tag.win span { color: var(--ivory-dim); }
+  .tag-east { bottom: 30px; left: 50%; transform: translateX(-50%); }
+  .tag-south { right: 30px; top: 50%; transform: translateY(-50%); }
+  .tag-west { top: 30px; left: 50%; transform: translateX(-50%); }
+  .tag-north { left: 30px; top: 50%; transform: translateY(-50%); }
+
+  .center-total { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--ivory); }
+  .center-total .ctn { font-family: "Noto Serif TC", serif; font-weight: 900; font-size: 30px; color: var(--gold); line-height: 1; }
+  .center-total .ctl { font-size: 10.5px; color: var(--muted-on-bg); margin-top: 2px; }
+  .seat-explain { text-align: center; font-size: 14.5px; line-height: 1.8; color: var(--text-on-panel); margin-bottom: 12px; }
+  .seat-explain b { color: var(--lacquer); }
+  .wall-legend { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted-on-panel); margin: -6px 0 14px; }
+  .wall-legend span { display: flex; align-items: center; gap: 4px; }
+  .wall-legend .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+  .wall-legend .dot-gold { background: var(--gold); }
+  .wall-legend .dot-red { background: #D14B3E; }
+  .wall-legend .dot-blue { background: #3E7DD1; }
+
+  /* ---- Mahjong tile chips (rendered as text, not emoji, for reliable display) ---- */
+  .mj-tile {
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #FBF7EE; border: 1px solid var(--divider); border-radius: 6px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.06), inset 0 0 0 1px rgba(255,255,255,0.5);
+    font-family: "Noto Serif TC", serif; line-height: 1.05; user-select: none; flex-shrink: 0;
+
+  }
+  .mj-tile.size-sm { width: 30px; height: 40px; }
+  .mj-tile.size-md { width: 40px; height: 52px; }
+  .mj-tile.size-lg { width: 50px; height: 64px; }
+  .mj-tile .num { font-weight: 900; }
+  .mj-tile.size-sm .num { font-size: 15px; }
+  .mj-tile.size-md .num { font-size: 20px; }
+  .mj-tile.size-lg .num { font-size: 25px; }
+  .mj-tile .sub { font-size: 0.55em; margin-top: 1px; font-weight: 700; }
+  .mj-tile .honor { font-weight: 900; }
+  .mj-tile.size-sm .honor { font-size: 16px; }
+  .mj-tile.size-md .honor { font-size: 21px; }
+  .mj-tile.size-lg .honor { font-size: 26px; }
+  .mj-tile.suit-m .num, .mj-tile.suit-m .sub { color: var(--ink); }
+  .mj-tile.suit-s .num, .mj-tile.suit-s .sub { color: var(--bamboo); }
+  .mj-tile.suit-p .num, .mj-tile.suit-p .sub { color: var(--circle); }
+  .mj-tile.suit-wind .honor { color: var(--ink); }
+  .mj-tile.suit-z .honor { color: var(--lacquer); }
+  .mj-tile.suit-f .honor { color: var(--bamboo); }
+  .mj-tile.suit-b .honor { color: var(--circle); }
+  .mj-tile.suit-flower .honor { color: #A6631B; }
+  .mj-tile.suit-back { background: repeating-linear-gradient(135deg, var(--bamboo), var(--bamboo) 5px, #245f3e 5px, #245f3e 10px); border-color: #1c4a30; }
+  .mj-tile.clickable { cursor: pointer; }
+  .mj-tile.clickable:active { background: var(--gold); transform: translateY(1px); }
+  .mj-tile.removable { cursor: pointer; }
+  .mj-tile.removable:hover { box-shadow: 0 0 0 2px var(--lacquer) inset; }
+  .mj-tile.win-marked { outline: 3px solid var(--gold); outline-offset: 1px; }
+
+  .target-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .target-row label {
+    display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-on-panel);
+    cursor: pointer; background: var(--panel-sub); border: 1px solid var(--divider);
+    border-radius: 8px; padding: 6px 10px;
+  }
+  .target-row input { accent-color: var(--lacquer); }
+
+  .meld-type-row { display: none; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .meld-type-row select {
+    padding: 7px 8px; border-radius: 8px; border: 1px solid var(--divider); font-family: inherit; font-size: 13px;
+  }
+  .meld-type-row .staging { display: flex; gap: 3px; min-height: 40px; align-items: center; }
+  .meld-type-row button {
+    font-size: 12.5px; padding: 7px 11px; border-radius: 7px; border: 1px solid var(--divider);
+    background: #fff; cursor: pointer; color: var(--text-on-panel);
+  }
+  .meld-type-row button.commit { background: var(--felt); color: var(--ivory); border-color: var(--felt); }
+
+  .palette { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
+  .palette-row { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  .manual-current { background: var(--panel-sub); border: 1px solid var(--divider); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+  .manual-current .mc-label { font-size: 12px; color: var(--muted-on-panel); margin-bottom: 8px; }
+  .manual-current .mc-row { display: flex; flex-wrap: wrap; gap: 5px; min-height: 40px; }
+  .manual-current .mc-empty { font-size: 12.5px; color: var(--muted-on-panel); align-self: center; }
+  .mc-group { display: flex; align-items: center; gap: 5px; padding: 4px 6px; border-radius: 8px; background: #fff; border: 1px solid var(--divider); }
+  .mc-group .mtype { font-size: 11.5px; color: var(--muted-on-panel); font-weight: 700; }
+  .mc-group .mtiles { display: flex; gap: 2px; cursor: pointer; }
+
+  .go-btn {
+    width: 100%; margin-top: 16px; padding: 14px; border: none; border-radius: 12px;
+    background: var(--lacquer); color: var(--ivory); font-size: 16px; font-weight: 700;
+    font-family: inherit; cursor: pointer; transition: background 0.15s ease, transform 0.05s ease;
+  }
+  .go-btn:hover:not(:disabled) { background: var(--lacquer-dark); }
+  .go-btn:active:not(:disabled) { transform: scale(0.99); }
+  .go-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .result { margin-top: 6px; display: none; }
+  .divider-line { border: none; border-top: 1px solid var(--divider); margin: 20px 0; }
+
+  .tiles-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tiles-row.melds .tile-group { display: flex; align-items: center; gap: 5px; padding: 5px 7px; border-radius: 9px; background: var(--panel-sub); border: 1px solid var(--divider); }
+  .tiles-row.melds .tile-group .mtype { font-size: 12px; font-weight: 700; color: var(--muted-on-panel); }
+
+  .win-caption { font-size: 12px; color: var(--muted-on-panel); margin-top: 6px; }
+  .win-caption .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--gold); vertical-align: middle; margin-right: 4px; }
+
+  .section-label { font-size: 12.5px; font-weight: 700; color: var(--muted-on-panel); margin-top: 16px; }
+
+  .total-block { text-align: center; background: var(--felt-deep); color: var(--ivory); border-radius: 14px; padding: 22px 12px; margin: 18px 0; }
+  .total-block .n { font-family: "Noto Serif TC", serif; font-weight: 900; font-size: 56px; line-height: 1; color: var(--gold); }
+  .total-block .lbl { font-size: 13px; color: var(--ivory-dim); margin-top: 6px; letter-spacing: 0.05em; }
+  .total-block .pay { margin-top: 12px; font-size: 17px; font-weight: 700; color: var(--ivory); display: none; }
+  .total-block .pay-sub { font-size: 11.5px; color: var(--muted-on-bg); margin-top: 2px; }
+
+  .item-list { margin-top: 4px; }
+  .item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 2px; border-bottom: 1px solid var(--divider); font-size: 14.5px; }
+  .item-row:last-child { border-bottom: none; }
+  .item-row .tai { font-weight: 700; color: var(--lacquer); font-family: "Noto Serif TC", serif; }
+  .empty-note { font-size: 13.5px; color: var(--muted-on-panel); padding: 8px 2px; }
+
+  .notes-box { margin-top: 16px; font-size: 12.5px; line-height: 1.7; color: var(--muted-on-panel); background: var(--panel-sub); border-radius: 10px; padding: 12px 14px; }
+  .notes-box b { color: var(--text-on-panel); }
+
+  .error-box {
+    margin-top: 14px; font-size: 13.5px; line-height: 1.7; background: #FBEAE7; border: 1px solid #E3B4AC;
+    color: var(--lacquer-dark); border-radius: 10px; padding: 12px 14px; display: none;
+  }
+
+  footer.foot { text-align: center; margin-top: 22px; font-size: 12px; color: var(--muted-on-bg); }
+
+  @media (max-width: 380px) {
+    h1 { font-size: 25px; }
+    .total-block .n { font-size: 46px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="hero">
+    <div class="seal">台</div>
+    <h1>麻將台數計算</h1>
+    <p class="sub">手動選牌，依台灣麻將常見台數表試算台數與金額。</p>
+  </header>
+
+  <div class="mode-tabs main-tabs">
+    <button class="tab-btn active" id="mainTabTai" type="button">台數計算</button>
+    <button class="tab-btn" id="mainTabSeat" type="button">骰子抓位</button>
+  </div>
+
+  <div class="card" id="taiCard">
+
+    <details class="settings">
+      <summary>牌局設定<span class="chev">▾</span></summary>
+      <div class="settings-grid">
+        <div class="field">
+          <label for="seatWind">你的門風</label>
+          <select id="seatWind">
+            <option value="E">東</option><option value="S">南</option><option value="W">西</option><option value="N">北</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="roundWind">圈風</label>
+          <select id="roundWind">
+            <option value="E">東</option><option value="S">南</option><option value="W">西</option><option value="N">北</option>
+          </select>
+        </div>
+        <div class="toggle-row">
+          <label class="toggle"><input type="checkbox" id="selfDraw"> 自摸</label>
+          <label class="toggle"><input type="checkbox" id="dealer"> 莊家</label>
+        </div>
+      </div>
+    </details>
+
+    <details class="settings">
+      <summary>算錢設定（底 / 每台金額）<span class="chev">▾</span></summary>
+      <div class="settings-grid">
+        <div class="field">
+          <label for="payMode">計算方式</label>
+          <select id="payMode">
+            <option value="linear">底 ＋ 台數 × 台值</option>
+            <option value="exp">台值 × 2 的台數次方</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="taiValue">每台金額（元，0＝不算錢）</label>
+          <input type="number" id="taiValue" value="10" min="0" step="1" inputmode="numeric">
+        </div>
+        <div class="field" id="diField">
+          <label for="diValue">底（元）</label>
+          <input type="number" id="diValue" value="0" min="0" step="1" inputmode="numeric">
+        </div>
+        <div class="field" id="capField" style="display:none;">
+          <label for="capTai">封頂台數（留空＝不封頂）</label>
+          <input type="number" id="capTai" min="1" step="1" inputmode="numeric" placeholder="不封頂">
+        </div>
+      </div>
+    </details>
+
+    <details class="settings" id="specialDetails">
+      <summary>特殊台數（自選，看說明勾選，不確定就不用勾）<span class="chev">▾</span></summary>
+      <p class="special-intro">以下都是跟「怎麼胡的、什麼時候胡的」有關，工具沒辦法從你選的牌自動判斷，每一項都附白話說明；看不懂或不確定的都可以不勾，大部分牌局也用不到這些。</p>
+      <div class="special-grid" id="specialGrid"></div>
+    </details>
+
+    <div id="manualPane">
+      <div class="target-row">
+        <label><input type="radio" name="target" value="hand" checked> 加入手牌</label>
+        <label><input type="radio" name="target" value="meld"> 吃／碰／槓</label>
+        <label><input type="radio" name="target" value="flower"> 花牌</label>
+        <label><input type="radio" name="target" value="win"> 胡的牌（最後一張）</label>
+      </div>
+
+      <div class="meld-type-row" id="meldTypeRow">
+        <select id="meldTypeSelect">
+          <option value="peng">碰</option>
+          <option value="chi">吃</option>
+          <option value="minggang">明槓</option>
+          <option value="angang">暗槓</option>
+        </select>
+        <span class="staging" id="stagingRow"></span>
+        <button type="button" id="commitMeldBtn" class="commit">加入這組</button>
+        <button type="button" id="clearStagingBtn">清空</button>
+      </div>
+
+      <div class="palette" id="palette"></div>
+
+      <div class="manual-current">
+        <div class="mc-label">目前手牌（不含胡牌那張／點一下移除）</div>
+        <div class="mc-row" id="mcHand"></div>
+      </div>
+      <div class="manual-current">
+        <div class="mc-label">胡的牌（點一下移除，會自動併入手牌一起計算）</div>
+        <div class="mc-row" id="mcWinning"></div>
+      </div>
+      <div class="manual-current">
+        <div class="mc-label">吃／碰／槓（點一下移除整組）</div>
+        <div class="mc-row" id="mcMelds"></div>
+      </div>
+      <div class="manual-current">
+        <div class="mc-label">花牌（點一下移除）</div>
+        <div class="mc-row" id="mcFlowers"></div>
+      </div>
+
+      <button class="go-btn" id="manualGoBtn">計算台數</button>
+      <div class="error-box" id="manualErrorBox"></div>
+    </div>
+
+    <div class="result" id="resultBlock">
+      <hr class="divider-line">
+
+      <div class="section-label">辨識到的手牌</div>
+      <div class="tiles-row" id="handTilesRow"></div>
+      <div class="win-caption" id="winCaption" style="display:none;"><span class="dot"></span>金色外框＝胡的那一張牌</div>
+
+      <div id="meldsSection" style="display:none;">
+        <div class="section-label">吃／碰／槓</div>
+        <div class="tiles-row melds" id="meldsRow"></div>
+      </div>
+
+      <div id="flowersSection" style="display:none;">
+        <div class="section-label">花牌</div>
+        <div class="tiles-row" id="flowersRow"></div>
+      </div>
+
+      <div class="total-block">
+        <div class="n" id="totalTai">0</div>
+        <div class="lbl">總台數</div>
+        <div class="pay" id="payLine"></div>
+        <div class="pay-sub" id="paySub"></div>
+      </div>
+
+      <div class="section-label">台數明細</div>
+      <div class="item-list" id="itemList"></div>
+
+      <div class="notes-box" id="notesBox" style="display:none;"></div>
+    </div>
+
+  </div>
+
+  <div class="card" id="seatCard" style="display:none;">
+    <p class="seat-intro">選好三顆骰子的點數後按「計算抓牌位置」，依東→南→西→北的順序數，告訴你數到第幾位、由哪一家開門抓牌。</p>
+
+    <div class="field" style="max-width:220px; margin: 0 auto 10px;">
+      <label for="rollerWind">擲骰的人目前是哪一家</label>
+      <select id="rollerWind">
+        <option value="E">東</option><option value="S">南</option><option value="W">西</option><option value="N">北</option>
+      </select>
+    </div>
+    <div class="toggle-row" style="justify-content:center; grid-column:auto; margin-bottom:16px;">
+      <label class="toggle"><input type="checkbox" id="useFlowers" checked> 這副牌有花牌（每家 18 墩，沒勾則每家 17 墩）</label>
+    </div>
+
+    <div class="dice-picker" id="dicePicker"></div>
+    <div class="dice-total-line">總點數：<span id="diceTotal">3</span> 點</div>
+    <button class="go-btn" id="calcSeatBtn" type="button">計算抓牌位置</button>
+
+    <div class="seat-result" id="seatResult" style="display:none;">
+      <div class="wall-table" id="wallTable">
+        <div class="wall-row top" id="wallWest"></div>
+        <div class="wall-row bottom" id="wallEast"></div>
+        <div class="wall-row left" id="wallNorth"></div>
+        <div class="wall-row right" id="wallSouth"></div>
+        <div class="seat-tag tag-east" id="tagEast"><span class="wname" id="wnameEast">東</span><span class="sub">莊家／擲骰者</span></div>
+        <div class="seat-tag tag-south" id="tagSouth"><span class="wname" id="wnameSouth">南</span><span class="sub">下家</span></div>
+        <div class="seat-tag tag-west" id="tagWest"><span class="wname" id="wnameWest">西</span><span class="sub">對家</span></div>
+        <div class="seat-tag tag-north" id="tagNorth"><span class="wname" id="wnameNorth">北</span><span class="sub">上家</span></div>
+        <div class="center-total"><div class="ctn" id="seatCenterTotal">9</div><div class="ctl">點</div></div>
+      </div>
+      <div class="wall-legend">
+        <span><i class="dot dot-gold"></i>從這裡抓牌</span>
+        <span><i class="dot dot-red"></i>補花來源（牌尾）</span>
+        <span><i class="dot dot-blue"></i>莊家開門牌</span>
+      </div>
+      <div class="seat-explain" id="seatExplain"></div>
+      <div class="notes-box">抓到花牌要立刻補花——把花牌攤出來公開，再從紅框那一墩開始往回補抓，抓到的還是花牌就繼續往回補，直到補到非花牌為止。此工具以擲骰的人（本局莊家）當作起點，其餘三家依相對位置（下家、對家、上家）類推；若你並非莊家本人，請自行對應到你實際的座位。</div>
+    </div>
+  </div>
+
+  <footer class="foot">結果為依常見台數表之估算，實際請以牌桌規則與台主判定為準。</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Main top-level tabs: 台數計算 / 骰子抓位 ----------
+  const mainTabTai = document.getElementById('mainTabTai');
+  const mainTabSeat = document.getElementById('mainTabSeat');
+  const taiCard = document.getElementById('taiCard');
+  const seatCard = document.getElementById('seatCard');
+  mainTabTai.addEventListener('click', () => {
+    mainTabTai.classList.add('active'); mainTabSeat.classList.remove('active');
+    taiCard.style.display = 'block'; seatCard.style.display = 'none';
+  });
+  mainTabSeat.addEventListener('click', () => {
+    mainTabSeat.classList.add('active'); mainTabTai.classList.remove('active');
+    seatCard.style.display = 'block'; taiCard.style.display = 'none';
+  });
+
+  // ---------- Dice seat picker (骰子抓位) ----------
+  const DICE_PIPS = { 1: [5], 2: [1, 9], 3: [1, 5, 9], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] };
+  const diceValues = [1, 1, 1];
+
+  function renderPips(container, n) {
+    container.innerHTML = '';
+    const active = DICE_PIPS[n] || [];
+    for (let i = 1; i <= 9; i++) {
+      const p = document.createElement('div');
+      p.className = 'pip' + (active.includes(i) ? ' on' : '');
+      container.appendChild(p);
+    }
+  }
+
+  function updateDiceTotal() {
+    const total = diceValues.reduce((a, b) => a + b, 0);
+    document.getElementById('diceTotal').textContent = String(total);
+  }
+
+  function buildDicePicker() {
+    const wrap = document.getElementById('dicePicker');
+    for (let i = 0; i < 3; i++) {
+      const box = document.createElement('div');
+      box.className = 'die-box';
+      const pips = document.createElement('div');
+      pips.className = 'pips-grid';
+      pips.id = 'pips' + i;
+      const sel = document.createElement('select');
+      sel.id = 'dieSel' + i;
+      for (let v = 1; v <= 6; v++) {
+        const opt = document.createElement('option');
+        opt.value = String(v); opt.textContent = v + ' 點';
+        sel.appendChild(opt);
+      }
+      sel.addEventListener('change', () => {
+        diceValues[i] = parseInt(sel.value, 10);
+        renderPips(pips, diceValues[i]);
+        updateDiceTotal();
+      });
+      box.appendChild(pips);
+      box.appendChild(sel);
+      wrap.appendChild(box);
+      renderPips(pips, diceValues[i]);
+    }
+    updateDiceTotal();
+  }
+  buildDicePicker();
+
+  const CYCLE = ['east', 'north', 'west', 'south']; // physical direction stacks continue counting/dealing in
+
+  function posFromOwner(ownerKey, count, wallLen) {
+    const loop = 4 * wallLen;
+    const startAbs = CYCLE.indexOf(ownerKey) * wallLen;
+    let targetAbs = (startAbs + (count - 1)) % loop;
+    if (targetAbs < 0) targetAbs += loop;
+    const wallIdx = Math.floor(targetAbs / wallLen);
+    const pos = (targetAbs % wallLen) + 1;
+    return { wall: CYCLE[wallIdx], pos };
+  }
+
+  document.getElementById('calcSeatBtn').addEventListener('click', () => {
+    const total = diceValues.reduce((a, b) => a + b, 0);
+    const mod = total % 4;
+    const ownerKey = { 1: 'east', 2: 'south', 3: 'west', 0: 'north' }[mod];
+    const wallLen = document.getElementById('useFlowers').checked ? 18 : 17;
+
+    const breakPoint = posFromOwner(ownerKey, total + 1, wallLen);      // 金框：從這裡開始抓牌
+    const flowerTail = posFromOwner(ownerKey, total, wallLen);          // 紅框：補花從這裡補
+    const doorTile = posFromOwner(ownerKey, total + 1 + 32, wallLen);   // 藍框：莊家的開門牌（第17張）
+
+    const marks = { gold: breakPoint, red: flowerTail, blue: doorTile };
+
+    renderWallRow('wallEast', 'east', marks, wallLen);
+    renderWallRow('wallWest', 'west', marks, wallLen);
+    renderWallRow('wallSouth', 'south', marks, wallLen);
+    renderWallRow('wallNorth', 'north', marks, wallLen);
+
+    // Rotate absolute wind labels so the roller's own slot shows their actual current wind
+    const WIND_ORDER = ['E', 'S', 'W', 'N'];
+    const WIND_CHAR = { E: '東', S: '南', W: '西', N: '北' };
+    const rollerWind = document.getElementById('rollerWind').value;
+    const startIdx = WIND_ORDER.indexOf(rollerWind);
+    const SLOT_WIND = {
+      east: WIND_ORDER[startIdx],
+      south: WIND_ORDER[(startIdx + 1) % 4],
+      west: WIND_ORDER[(startIdx + 2) % 4],
+      north: WIND_ORDER[(startIdx + 3) % 4]
+    };
+    ['east', 'south', 'west', 'north'].forEach(slot => {
+      const cap = slot.charAt(0).toUpperCase() + slot.slice(1);
+      document.getElementById('wname' + cap).textContent = WIND_CHAR[SLOT_WIND[slot]];
+      document.getElementById('tag' + cap).classList.toggle('win', slot === breakPoint.wall);
+    });
+
+    document.getElementById('seatCenterTotal').textContent = String(total);
+
+    const SLOT_DESC = { east: '莊家（擲骰者）', south: '下家', west: '對家', north: '上家' };
+    const nameOf = (slot) => WIND_CHAR[SLOT_WIND[slot]] + '（' + SLOT_DESC[slot] + '）';
+
+    let explainHtml = '總點數 <b>' + total + '</b> 點，先依東南西北循環決定牌墩落在 <b>' + nameOf(ownerKey) + '</b>。';
+    if (breakPoint.wall === ownerKey) {
+      explainHtml += '再從 ' + nameOf(ownerKey) + ' 自己的右手邊數 ' + total + ' 墩，從第 <b>' + breakPoint.pos + '</b> 墩（<span style="color:var(--gold)">金框</span>）開始抓牌。';
+    } else {
+      explainHtml += '再從 ' + nameOf(ownerKey) + ' 的右手邊數 ' + total + ' 墩時，數過了牌尾轉角，實際落在 <b>' + nameOf(breakPoint.wall) + '</b> 那一側的第 <b>' + breakPoint.pos + '</b> 墩（<span style="color:var(--gold)">金框</span>），就從那裡開始抓牌。';
+    }
+    explainHtml += '<br>補花要從 <b>' + nameOf(flowerTail.wall) + '</b> 的第 <b>' + flowerTail.pos + '</b> 墩（<span style="color:#D14B3E">紅框</span>，牌尾）開始補。';
+    explainHtml += '<br>四家都抓完 16 張牌後，莊家的開門牌在 <b>' + nameOf(doorTile.wall) + '</b> 的第 <b>' + doorTile.pos + '</b> 墩（<span style="color:#3E7DD1">藍框</span>）。';
+
+    document.getElementById('seatExplain').innerHTML = explainHtml;
+    document.getElementById('seatResult').style.display = 'block';
+  });
+
+  function renderWallRow(containerId, wallKey, marks, wallLen) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    const showNumbers = Object.values(marks).some(m => m.wall === wallKey);
+    for (let i = 0; i < wallLen; i++) {
+      let pos;
+      if (wallKey === 'east') pos = wallLen - i;
+      else if (wallKey === 'west') pos = i + 1;
+      else if (wallKey === 'south') pos = i + 1;
+      else pos = wallLen - i; // north
+
+      let hlClass = '';
+      if (marks.gold.wall === wallKey && marks.gold.pos === pos) hlClass = ' hl-gold';
+      else if (marks.blue.wall === wallKey && marks.blue.pos === pos) hlClass = ' hl-blue';
+      else if (marks.red.wall === wallKey && marks.red.pos === pos) hlClass = ' hl-red';
+
+      const div = document.createElement('div');
+      div.className = 'stack' + hlClass;
+      if (showNumbers) {
+        const n = document.createElement('span');
+        n.className = 'pnum';
+        n.textContent = String(pos);
+        div.appendChild(n);
+      }
+      container.appendChild(div);
+    }
+  }
+
+  // ---------- Tile metadata & rendering (text-based tiles, not emoji, for reliable display) ----------
+  const WIND_NAME = { E: '東', S: '南', W: '西', N: '北' };
+  const FLOWER_NAME = { chun: '春', xia: '夏', qiu: '秋', dong: '冬', mei: '梅', lan: '蘭', zhu: '竹', ju: '菊' };
+  const SUIT_SUB = { m: '萬', s: '條', p: '筒' };
+
+  function tileMeta(code) {
+    const m = /^([1-9])([msp])$/.exec(code);
+    if (m) return { main: m[1], sub: SUIT_SUB[m[2]], cls: 'suit-' + m[2] };
+    if (WIND_NAME[code]) return { main: WIND_NAME[code], cls: 'suit-wind' };
+    if (code === 'Z') return { main: '中', cls: 'suit-z' };
+    if (code === 'F') return { main: '發', cls: 'suit-f' };
+    if (code === 'B') return { main: '白', cls: 'suit-b' };
+    if (FLOWER_NAME[code]) return { main: FLOWER_NAME[code], cls: 'suit-flower' };
+    return null;
+  }
+  function isValidTile(code) { return !!tileMeta(code); }
+
+  function makeTile(code, size, extraClass) {
+    const div = document.createElement('div');
+    const meta = tileMeta(code);
+    if (!meta) { div.className = 'mj-tile size-' + size; div.textContent = '?'; return div; }
+    div.className = 'mj-tile size-' + size + ' ' + meta.cls + (extraClass ? ' ' + extraClass : '');
+    if (meta.sub) {
+      div.innerHTML = '<span class="num">' + meta.main + '</span><span class="sub">' + meta.sub + '</span>';
+    } else {
+      div.innerHTML = '<span class="honor">' + meta.main + '</span>';
+    }
+    return div;
+  }
+
+  // ---------- Special (situational) tai items ----------
+  const SPECIAL_TAI = [
+    ['tianhu', '天胡', 24, '你是莊家，發完牌手上直接就已經胡了，一張牌都還沒摸、沒打過'],
+    ['dihu', '地胡', 16, '你不是莊家，輪到你的第一次摸牌，就自己摸胡了（這之前你還沒打過牌）'],
+    ['renhu', '人胡', 16, '開局第一輪，你就直接吃到莊家打出的第一張牌，湊成胡牌'],
+    ['tianting', '天聽', 16, '你是莊家，發完牌整理好手牌後，發現不用摸牌就已經在聽牌（只差一張就能胡）'],
+    ['diting', '地聽', 8, '你不是莊家，發完牌整理好手牌後，發現不用摸牌就已經在聽牌'],
+    ['qiqiangyi', '七搶一', 8, '別人「加槓」（把已經碰過的牌湊成第4張）時，剛好那張牌是你在等的牌，而且當下只有你能胡'],
+    ['haidi', '海底撈月', 1, '你摸的是牌牆最後一張牌，摸起來剛好就胡了'],
+    ['gangshang', '槓上自摸', 1, '你剛槓完牌，去牌尾補摸的那張牌剛好讓你胡了'],
+    ['qianggang', '搶槓', 1, '別人「加槓」時，剛好那張牌是你在等的牌，你用它胡牌（不用等自己摸到）'],
+    ['quanqiuren', '全求人', 1, '你手上的組合全部都是吃、碰來的（沒有自己暗藏的組合），而且連胡的那張牌也是別人打出來的'],
+    ['buqiuren', '不求人', 1, '你完全靠自己摸牌湊成這副牌，中途完全沒有吃、沒有碰'],
+    ['duting', '獨聽', 1, '胡牌前，你手上在等的牌只有一種可能（不是好幾種花色/數字都能胡）']
+  ];
+  function buildSpecialGrid() {
+    const wrap = document.getElementById('specialGrid');
+    SPECIAL_TAI.forEach(([key, label, tai, desc]) => {
+      const lab = document.createElement('label');
+      lab.className = 'special-item';
+      lab.innerHTML =
+        '<span class="si-row"><input type="checkbox" data-key="' + key + '"> <b>' + label + '</b> <span class="hint">(' + tai + ' 台)</span></span>' +
+        '<span class="si-desc">' + desc + '</span>';
+      wrap.appendChild(lab);
+    });
+  }
+  buildSpecialGrid();
+  function getSpecialCtx() {
+    const res = {};
+    document.querySelectorAll('#specialGrid input[type=checkbox]').forEach(cb => { res[cb.dataset.key] = cb.checked; });
+    return res;
+  }
+
+  // ---------- Pay settings ----------
+  const payMode = document.getElementById('payMode');
+  const diField = document.getElementById('diField');
+  const capField = document.getElementById('capField');
+  function updatePayFieldVisibility() {
+    const mode = payMode.value;
+    diField.style.display = mode === 'linear' ? 'block' : 'none';
+    capField.style.display = mode === 'exp' ? 'block' : 'none';
+  }
+  payMode.addEventListener('change', updatePayFieldVisibility);
+  updatePayFieldVisibility();
+
+  function computePayout(total) {
+    const taiValue = parseFloat(document.getElementById('taiValue').value);
+    if (!taiValue || taiValue <= 0) return null;
+    if (payMode.value === 'linear') {
+      const di = parseFloat(document.getElementById('diValue').value) || 0;
+      return { amount: di + total * taiValue, desc: '底 ' + di + ' ＋ ' + total + '台 × ' + taiValue + '元' };
+    }
+    const capRaw = document.getElementById('capTai').value;
+    const cap = capRaw ? parseInt(capRaw, 10) : null;
+    const usedTai = cap ? Math.min(total, cap) : total;
+    const amount = taiValue * Math.pow(2, usedTai);
+    return { amount, desc: taiValue + '元 × 2^' + usedTai + (cap && total > cap ? '（已封頂，原始 ' + total + '台）' : '') };
+  }
+
+  // ---------- Result block ----------
+  const resultBlock = document.getElementById('resultBlock');
+
+  // ---------- Manual picker ----------
+  const manualHand = [];
+  let manualMelds = [];
+  const manualFlowers = [];
+  let winningTileCode = null;
+  let staging = [];
+
+  const PALETTE_ROWS = [
+    ['1m','2m','3m','4m','5m','6m','7m','8m','9m'],
+    ['1s','2s','3s','4s','5s','6s','7s','8s','9s'],
+    ['1p','2p','3p','4p','5p','6p','7p','8p','9p'],
+    ['E','S','W','N','Z','F','B'],
+    ['chun','xia','qiu','dong','mei','lan','zhu','ju']
+  ];
+  function buildPalette() {
+    const wrap = document.getElementById('palette');
+    PALETTE_ROWS.forEach(row => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'palette-row';
+      row.forEach(t => {
+        const el = makeTile(t, 'md', 'clickable');
+        el.addEventListener('click', () => onPaletteTap(t));
+        rowEl.appendChild(el);
+      });
+      wrap.appendChild(rowEl);
+    });
+  }
+  buildPalette();
+
+  function currentTarget() {
+    const el = document.querySelector('input[name="target"]:checked');
+    return el ? el.value : 'hand';
+  }
+  document.querySelectorAll('input[name="target"]').forEach(r => {
+    r.addEventListener('change', () => {
+      document.getElementById('meldTypeRow').style.display = currentTarget() === 'meld' ? 'flex' : 'none';
+    });
+  });
+
+  function onPaletteTap(t) {
+    const target = currentTarget();
+    if (target === 'hand') {
+      manualHand.push(t);
+      renderManualHand();
+    } else if (target === 'flower') {
+      manualFlowers.push(t);
+      renderManualFlowers();
+    } else if (target === 'win') {
+      winningTileCode = t;
+      renderManualWinning();
+    } else {
+      const type = document.getElementById('meldTypeSelect').value;
+      const maxLen = (type === 'angang' || type === 'minggang') ? 4 : 3;
+      if (staging.length >= maxLen) return;
+      staging.push(t);
+      renderStaging();
+    }
+  }
+
+  function renderStaging() {
+    const row = document.getElementById('stagingRow');
+    row.innerHTML = '';
+    staging.forEach(t => row.appendChild(makeTile(t, 'sm')));
+  }
+  document.getElementById('meldTypeSelect').addEventListener('change', () => { staging = []; renderStaging(); });
+  document.getElementById('clearStagingBtn').addEventListener('click', () => { staging = []; renderStaging(); });
+  document.getElementById('commitMeldBtn').addEventListener('click', () => {
+    const type = document.getElementById('meldTypeSelect').value;
+    const needLen = (type === 'angang' || type === 'minggang') ? 4 : 3;
+    if (staging.length !== needLen) {
+      showManualError('這組「' + document.getElementById('meldTypeSelect').selectedOptions[0].textContent + '」需要 ' + needLen + ' 張牌，目前選了 ' + staging.length + ' 張。');
+      return;
+    }
+    clearManualError();
+    manualMelds.push({ type, tiles: staging.slice() });
+    staging = [];
+    renderStaging();
+    renderManualMelds();
+  });
+
+  function renderManualHand() {
+    const wrap = document.getElementById('mcHand');
+    wrap.innerHTML = '';
+    if (manualHand.length === 0) { wrap.innerHTML = '<span class="mc-empty">尚未加入任何牌</span>'; return; }
+    manualHand.forEach((t, idx) => {
+      const el = makeTile(t, 'sm', 'removable');
+      el.addEventListener('click', () => { manualHand.splice(idx, 1); renderManualHand(); });
+      wrap.appendChild(el);
+    });
+  }
+  function renderManualFlowers() {
+    const wrap = document.getElementById('mcFlowers');
+    wrap.innerHTML = '';
+    if (manualFlowers.length === 0) { wrap.innerHTML = '<span class="mc-empty">尚未加入花牌</span>'; return; }
+    manualFlowers.forEach((t, idx) => {
+      const el = makeTile(t, 'sm', 'removable');
+      el.addEventListener('click', () => { manualFlowers.splice(idx, 1); renderManualFlowers(); });
+      wrap.appendChild(el);
+    });
+  }
+  function renderManualWinning() {
+    const wrap = document.getElementById('mcWinning');
+    wrap.innerHTML = '';
+    if (!winningTileCode) { wrap.innerHTML = '<span class="mc-empty">尚未選擇（選填）</span>'; return; }
+    const el = makeTile(winningTileCode, 'sm', 'removable win-marked');
+    el.addEventListener('click', () => { winningTileCode = null; renderManualWinning(); });
+    wrap.appendChild(el);
+  }
+  function renderManualMelds() {
+    const wrap = document.getElementById('mcMelds');
+    wrap.innerHTML = '';
+    if (manualMelds.length === 0) { wrap.innerHTML = '<span class="mc-empty">尚未加入吃／碰／槓</span>'; return; }
+    const typeLabel = { peng: '碰', chi: '吃', minggang: '明槓', angang: '暗槓' };
+    manualMelds.forEach((m, idx) => {
+      const g = document.createElement('span');
+      g.className = 'mc-group';
+      const label = document.createElement('span');
+      label.className = 'mtype';
+      label.textContent = typeLabel[m.type] || m.type;
+      g.appendChild(label);
+      const tilesWrap = document.createElement('span');
+      tilesWrap.className = 'mtiles';
+      m.tiles.forEach(t => tilesWrap.appendChild(makeTile(t, 'sm')));
+      g.appendChild(tilesWrap);
+      g.addEventListener('click', () => { manualMelds.splice(idx, 1); renderManualMelds(); });
+      wrap.appendChild(g);
+    });
+  }
+  renderManualHand();
+  renderManualFlowers();
+  renderManualWinning();
+  renderManualMelds();
+
+  function showManualError(msg) { const box = document.getElementById('manualErrorBox'); box.textContent = msg; box.style.display = 'block'; }
+  function clearManualError() { document.getElementById('manualErrorBox').style.display = 'none'; }
+
+  document.getElementById('manualGoBtn').addEventListener('click', () => {
+    clearManualError();
+    if (manualHand.length === 0 && !winningTileCode) {
+      showManualError('請先在上面點選牌張加入手牌。');
+      return;
+    }
+    try {
+      const concealed = manualHand.slice().concat(winningTileCode ? [winningTileCode] : []);
+      renderResult({ concealedTiles: concealed, melds: manualMelds.slice(), flowers: manualFlowers.slice(), notes: '', winningTile: winningTileCode });
+    } catch (e) {
+      showManualError('計算時發生錯誤，請確認牌張數量是否正確（5 組共 17 張，含吃碰槓與胡牌那一張）。');
+    }
+  });
+
+  // ---------- Mahjong scoring engine ----------
+  function isHonor(t) { return t === 'E' || t === 'S' || t === 'W' || t === 'N' || t === 'Z' || t === 'F' || t === 'B'; }
+  function isDragon(t) { return t === 'Z' || t === 'F' || t === 'B'; }
+  function isWind(t) { return t === 'E' || t === 'S' || t === 'W' || t === 'N'; }
+  function suitOf(t) { const m = /^[1-9]([msp])$/.exec(t); return m ? m[1] : null; }
+
+  const TILE_ORDER = (() => {
+    const order = ['E', 'S', 'W', 'N', 'Z', 'F', 'B'];
+    ['m', 's', 'p'].forEach(suit => { for (let n = 1; n <= 9; n++) order.push(n + suit); });
+    return order;
+  })();
+  function pickSmallest(keys) {
+    let best = null, bestIdx = Infinity;
+    for (const k of keys) {
+      const idx = TILE_ORDER.indexOf(k);
+      const i = idx === -1 ? 999 : idx;
+      if (i < bestIdx) { bestIdx = i; best = k; }
+    }
+    return best;
+  }
+
+  function decomposeGroups(counts, need, current, results) {
+    if (need === 0) { results.push(current.slice()); return; }
+    const present = Object.keys(counts).filter(k => counts[k] > 0);
+    if (present.length === 0) return;
+    const tile = pickSmallest(present);
+
+    if (counts[tile] >= 3) {
+      counts[tile] -= 3;
+      current.push({ type: 'triplet', tile, concealed: true });
+      decomposeGroups(counts, need - 1, current, results);
+      current.pop();
+      counts[tile] += 3;
+    }
+    const suit = suitOf(tile);
+    if (suit) {
+      const n = parseInt(tile, 10);
+      if (n <= 7) {
+        const t2 = (n + 1) + suit, t3 = (n + 2) + suit;
+        if ((counts[t2] || 0) > 0 && (counts[t3] || 0) > 0) {
+          counts[tile]--; counts[t2]--; counts[t3]--;
+          current.push({ type: 'sequence', tile, concealed: true });
+          decomposeGroups(counts, need - 1, current, results);
+          counts[tile]++; counts[t2]++; counts[t3]++;
+          current.pop();
+        }
+      }
+    }
+  }
+
+  function findAllHands(tiles, groupsNeeded) {
+    const counts = {};
+    tiles.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+    const results = [];
+    Object.keys(counts).forEach(p => {
+      if (counts[p] >= 2) {
+        counts[p] -= 2;
+        const sub = [];
+        decomposeGroups(counts, groupsNeeded, [], sub);
+        sub.forEach(groups => results.push({ pair: p, groups }));
+        counts[p] += 2;
+      }
+    });
+    return results;
+  }
+
+  function meldToGroup(m) {
+    if (m.type === 'chi') {
+      const nums = m.tiles.map(t => parseInt(t, 10)).sort((a, b) => a - b);
+      const suit = suitOf(m.tiles[0]);
+      return { type: 'sequence', tile: nums[0] + suit, concealed: false };
+    }
+    return { type: 'triplet', tile: m.tiles[0], concealed: m.type === 'angang' };
+  }
+
+  function scoreHand(fullGroups, pairTile, flowers, melds, ctx) {
+    const items = [];
+    const numericSuits = new Set();
+    let honorPresent = false;
+
+    fullGroups.forEach(g => { const s = suitOf(g.tile); if (s) numericSuits.add(s); else honorPresent = true; });
+    if (suitOf(pairTile)) numericSuits.add(suitOf(pairTile)); else if (isHonor(pairTile)) honorPresent = true;
+
+    if (numericSuits.size === 0 && honorPresent) items.push(['字一色', 16]);
+    else if (numericSuits.size === 1 && !honorPresent) items.push(['清一色', 8]);
+    else if (numericSuits.size === 1 && honorPresent) items.push(['混一色', 4]);
+
+    const allTriplets = fullGroups.every(g => g.type === 'triplet');
+    if (allTriplets) items.push(['碰碰胡', 4]);
+
+    const allSequences = fullGroups.every(g => g.type === 'sequence');
+    if (allSequences && !isHonor(pairTile) && flowers.length === 0) items.push(['平胡', 1]);
+
+    const concealedTripletCount = fullGroups.filter(g => g.type === 'triplet' && g.concealed).length;
+    if (concealedTripletCount === 5) items.push(['五暗刻', 8]);
+    else if (concealedTripletCount === 4) items.push(['四暗刻', 5]);
+
+    const dragonGroups = fullGroups.filter(g => g.type === 'triplet' && isDragon(g.tile));
+    const windGroups = fullGroups.filter(g => g.type === 'triplet' && isWind(g.tile));
+
+    if (dragonGroups.length === 3) items.push(['大三元', 8]);
+    else if (dragonGroups.length === 2 && isDragon(pairTile)) items.push(['小三元', 4]);
+    else dragonGroups.forEach(() => items.push(['箭牌（三元牌刻）', 1]));
+
+    if (windGroups.length === 4) items.push(['大四喜', 16]);
+    else if (windGroups.length === 3 && isWind(pairTile)) items.push(['小四喜', 8]);
+    else windGroups.forEach(g => {
+      if (g.tile === ctx.seatWind) items.push(['本風（門風刻）', 1]);
+      if (g.tile === ctx.roundWind) items.push(['場風（圈風刻）', 1]);
+    });
+
+    melds.forEach(m => {
+      if (m.type === 'minggang') items.push(['明槓', 1]);
+      if (m.type === 'angang') items.push(['暗槓', 2]);
+    });
+
+    const hasOpenNonKongMeld = melds.some(m => m.type === 'peng' || m.type === 'chi' || m.type === 'minggang');
+    const isMenqing = !hasOpenNonKongMeld;
+    if (isMenqing && ctx.selfDraw) items.push(['門清自摸（一摸三）', 3]);
+    else {
+      if (isMenqing) items.push(['門清', 1]);
+      if (ctx.selfDraw) items.push(['自摸', 1]);
+    }
+
+    if (ctx.dealer) items.push(['莊家', 1]);
+
+    const seasonMap = { chun: 'E', xia: 'S', qiu: 'W', dong: 'N' };
+    const plantMap = { mei: 'E', lan: 'S', zhu: 'W', ju: 'N' };
+    let matched = 0;
+    flowers.forEach(f => { const seat = seasonMap[f] || plantMap[f]; if (seat && seat === ctx.seatWind) matched++; });
+    if (matched > 0) items.push(['正花 ×' + matched, matched]);
+
+    const seasonsAll = ['chun', 'xia', 'qiu', 'dong'].every(f => flowers.includes(f));
+    const plantsAll = ['mei', 'lan', 'zhu', 'ju'].every(f => flowers.includes(f));
+    if (seasonsAll && plantsAll) items.push(['八仙過海（全花）', 8]);
+    else {
+      if (seasonsAll) items.push(['花槓（春夏秋冬）', 1]);
+      if (plantsAll) items.push(['花槓（梅蘭竹菊）', 1]);
+    }
+
+    SPECIAL_TAI.forEach(([key, label, tai]) => { if (ctx.special && ctx.special[key]) items.push([label, tai]); });
+
+    const total = items.reduce((s, it) => s + it[1], 0);
+    return { total, items };
+  }
+
+  function bestScore(concealedTiles, melds, flowers, ctx) {
+    const groupsNeeded = 5 - melds.length;
+    const expected = 2 + groupsNeeded * 3;
+    const candidates = findAllHands(concealedTiles, groupsNeeded);
+    const meldGroups = melds.map(meldToGroup);
+
+    let best = null;
+    candidates.forEach(c => {
+      const fullGroups = meldGroups.concat(c.groups);
+      const res = scoreHand(fullGroups, c.pair, flowers, melds, ctx);
+      if (!best || res.total > best.total) best = res;
+    });
+    return { best, tileCountOk: concealedTiles.length === expected };
+  }
+
+  function fallbackSuitInfo(concealedTiles, melds) {
+    const allTiles = concealedTiles.concat(melds.reduce((a, m) => a.concat(m.tiles), []));
+    const numericSuits = new Set();
+    let honorPresent = false;
+    allTiles.forEach(t => { const s = suitOf(t); if (s) numericSuits.add(s); else if (isHonor(t)) honorPresent = true; });
+    const items = [];
+    if (numericSuits.size === 0 && honorPresent) items.push(['字一色（花色推測）', 16]);
+    else if (numericSuits.size === 1 && !honorPresent) items.push(['清一色（花色推測）', 8]);
+    else if (numericSuits.size === 1 && honorPresent) items.push(['混一色（花色推測）', 4]);
+    return items;
+  }
+
+  // ---------- Render ----------
+  function renderResult(data) {
+    const concealedTiles = Array.isArray(data.concealedTiles) ? data.concealedTiles.filter(isValidTile) : [];
+    const melds = Array.isArray(data.melds) ? data.melds.filter(m => m && Array.isArray(m.tiles) && m.tiles.length > 0 && m.tiles.every(isValidTile)) : [];
+    const flowers = Array.isArray(data.flowers) ? data.flowers.filter(f => tileMeta(f) && tileMeta(f).cls === 'suit-flower') : [];
+    const notes = typeof data.notes === 'string' ? data.notes.trim() : '';
+    const winningTile = data.winningTile && isValidTile(data.winningTile) ? data.winningTile : null;
+
+    const ctx = {
+      seatWind: document.getElementById('seatWind').value,
+      roundWind: document.getElementById('roundWind').value,
+      selfDraw: document.getElementById('selfDraw').checked,
+      dealer: document.getElementById('dealer').checked,
+      special: getSpecialCtx()
+    };
+
+    const handRow = document.getElementById('handTilesRow');
+    handRow.innerHTML = '';
+    concealedTiles.forEach(t => {
+      const marked = winningTile && t === winningTile;
+      handRow.appendChild(makeTile(t, 'md', marked ? 'win-marked' : null));
+    });
+    document.getElementById('winCaption').style.display = winningTile ? 'block' : 'none';
+
+    const meldsSection = document.getElementById('meldsSection');
+    const meldsRow = document.getElementById('meldsRow');
+    meldsRow.innerHTML = '';
+    const typeLabel = { peng: '碰', chi: '吃', minggang: '明槓', angang: '暗槓' };
+    if (melds.length > 0) {
+      meldsSection.style.display = 'block';
+      melds.forEach(m => {
+        const g = document.createElement('span');
+        g.className = 'tile-group';
+        const lbl = document.createElement('span');
+        lbl.className = 'mtype';
+        lbl.textContent = typeLabel[m.type] || m.type;
+        g.appendChild(lbl);
+        m.tiles.forEach(t => g.appendChild(makeTile(t, 'sm')));
+        meldsRow.appendChild(g);
+      });
+    } else { meldsSection.style.display = 'none'; }
+
+    const flowersSection = document.getElementById('flowersSection');
+    const flowersRow = document.getElementById('flowersRow');
+    flowersRow.innerHTML = '';
+    if (flowers.length > 0) {
+      flowersSection.style.display = 'block';
+      flowers.forEach(f => flowersRow.appendChild(makeTile(f, 'md')));
+    } else { flowersSection.style.display = 'none'; }
+
+    const { best, tileCountOk } = bestScore(concealedTiles, melds, flowers, ctx);
+
+    const itemList = document.getElementById('itemList');
+    itemList.innerHTML = '';
+    const notesBox = document.getElementById('notesBox');
+    let noteLines = [];
+    let total = 0, items = [];
+
+    if (best) { total = best.total; items = best.items; }
+    else {
+      items = fallbackSuitInfo(concealedTiles, melds);
+      total = items.reduce((s, it) => s + it[1], 0);
+      noteLines.push('無法從辨識結果拼出完整的胡牌牌型（可能是牌張辨識有誤、手牌不完整，或不是聽牌／胡牌狀態），以下僅為花色與牌型的粗略推算，僅供參考。');
+    }
+    if (best && !tileCountOk) noteLines.push('辨識到的牌張數量與標準胡牌張數不完全相符，計算結果可能有誤差。');
+    if (notes) noteLines.push('AI 辨識備註：' + notes);
+
+    document.getElementById('totalTai').textContent = String(total);
+
+    const payout = computePayout(total);
+    const payLine = document.getElementById('payLine');
+    const paySub = document.getElementById('paySub');
+    if (payout) {
+      payLine.style.display = 'block';
+      payLine.textContent = '約應付 ' + Math.round(payout.amount) + ' 元';
+      paySub.textContent = payout.desc;
+    } else {
+      payLine.style.display = 'none';
+      paySub.textContent = '';
+    }
+
+    if (items.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-note';
+      empty.textContent = '沒有計得任何台數項目（部分牌桌設有最低台數限制才能胡牌，請自行確認）。';
+      itemList.appendChild(empty);
+    } else {
+      items.forEach(([name, tai]) => {
+        const row = document.createElement('div');
+        row.className = 'item-row';
+        const n = document.createElement('span'); n.textContent = name;
+        const t = document.createElement('span'); t.className = 'tai'; t.textContent = '+' + tai + ' 台';
+        row.appendChild(n); row.appendChild(t);
+        itemList.appendChild(row);
+      });
+    }
+
+    if (noteLines.length > 0) {
+      notesBox.innerHTML = '<b>提醒：</b>' + noteLines.map(escapeHtml).join('<br>');
+      notesBox.style.display = 'block';
+    } else { notesBox.style.display = 'none'; }
+
+    resultBlock.style.display = 'block';
+  }
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+})();
+</script>
+</body>
+</html>
